@@ -8,21 +8,27 @@ uint8_t wave[WAVE_LEN];
 void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
 
-  // Fill with ramp
+  // Mostly silence
   for (int i = 0; i < WAVE_LEN; i++) {
-    wave[i] = i;
+    wave[i] = 128;   // mid level
   }
 
-  // BIG loop marker
-  for (int i = 0; i < 50; i++) {
+  // A short burst at the start of each loop
+  for (int i = 0; i < 12; i++) {
+    wave[i] = 255;
+  }
+  for (int i = 12; i < 24; i++) {
     wave[i] = 0;
   }
-  wave[50] = 255;
 }
 
 void loop() {
   for (int i = 0; i < WAVE_LEN; i++) {
     analogWrite(OUTPUT_PIN, wave[i]);
-    delayMicroseconds(200);
+    delayMicroseconds(400);
   }
+
+  // obvious gap between repeats
+  analogWrite(OUTPUT_PIN, 128);
+  delay(300);
 }
