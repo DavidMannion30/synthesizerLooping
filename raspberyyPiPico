@@ -1,0 +1,81 @@
+#include <Arduino.h>
+
+#define INPUT_PIN 26        // GP26 = ADC0
+#define OUTPUT_PIN 15       // PWM output
+#define BUTTON_PIN 14       // Record button
+
+#define SAMPLE_RATE 10000
+#define RECORD_SECONDS 5
+#define BUFFER_SIZE (SAMPLE_RATE * RECORD_SECONDS)
+
+uint8_t audioBuffer[BUFFER_SIZE];
+
+bool hasRecording = false;
+
+void waitForButtonRelease() {
+  while (digitalRead(BUTTON_PIN) == LOW) {
+    delay(1);
+  }
+  delay(50);
+}
+
+void recordAudio() {
+  unsigned long samplePeriodUs = 1000000UL / SAMPLE_RATE;
+
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    int raw = analogRead(INPUT_PIN);     // Pico ADC is 12-bit in Arduino core usually
+    audioBuffer[i] = raw >> 4;           // convert 0..4095 to 0..255
+
+    unsigned long start = micros();
+    while (micros() - start < samplePeriodUs) {
+    }
+  }
+
+  hasRecording = true;
+}
+
+void playLoop() {
+  unsigned long samplePeriodUs = 1000000UL / SAMPLE_RATE;
+
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    analogWrite(OUTPUT_PIN, audioBuffer[i]);
+
+    unsigned long start = micros();
+    while (micros() - start < samplePeriodUs) {
+    }
+
+    // allow re-record during playback
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      waitForButtonRelease();
+      recordAudio();
+      return;
+    }
+  }
+}
+
+void setup() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(OUTPUT_PIN, OUTPUT);
+
+  analogReadResolution(12);
+  analogWriteRange(255);
+  analogWriteFreq(62500);   // high PWM freq helps filtering
+
+  // silence buffer at midpoint
+  for (int i = 0; i < BUFFER_SIZE; i++) {
+    audioBuffer[i] = 128;
+  }
+}
+
+void loop() {
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    waitForButtonRelease();
+    recordAudio();
+  }
+
+  if (hasRecording) {
+    playLoop();
+  } else {
+    analogWrite(OUTPUT_PIN, 128);
+  }
+}
