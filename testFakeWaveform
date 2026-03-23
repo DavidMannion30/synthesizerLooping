@@ -13,16 +13,11 @@ void setup() {
     wave[i] = i;
   }
 
-  // Add a sharp pulse at the start
-  wave[0] = 255;
-  wave[1] = 0;
-  wave[2] = 255;
-  wave[3] = 0;
-}
-
-void loop() {
-  for (int i = 0; i < WAVE_LEN; i++) {
-    analogWrite(OUTPUT_PIN, wave[i]);
-    delayMicroseconds(50);
+  // ---- BIG loop marker ----
+  // Force a noticeable discontinuity
+  for (int i = 0; i < 20; i++) {
+    wave[i] = 0;   // silence
   }
+
+  wave[20] = 255;  // sharp spike
 }
