@@ -13,11 +13,16 @@ void setup() {
     wave[i] = i;
   }
 
-  // ---- BIG loop marker ----
-  // Force a noticeable discontinuity
-  for (int i = 0; i < 20; i++) {
-    wave[i] = 0;   // silence
+  // BIG loop marker
+  for (int i = 0; i < 50; i++) {
+    wave[i] = 0;
   }
+  wave[50] = 255;
+}
 
-  wave[20] = 255;  // sharp spike
+void loop() {
+  for (int i = 0; i < WAVE_LEN; i++) {
+    analogWrite(OUTPUT_PIN, wave[i]);
+    delayMicroseconds(200);
+  }
 }
