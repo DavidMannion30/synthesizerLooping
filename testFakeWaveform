@@ -1,0 +1,22 @@
+#include <Arduino.h>
+
+#define OUTPUT_PIN 3
+#define WAVE_LEN 256
+
+uint8_t wave[WAVE_LEN];
+
+void setup() {
+  pinMode(OUTPUT_PIN, OUTPUT);
+
+  // Fill buffer with a simple ramp wave
+  for (int i = 0; i < WAVE_LEN; i++) {
+    wave[i] = i;
+  }
+}
+
+void loop() {
+  for (int i = 0; i < WAVE_LEN; i++) {
+    analogWrite(OUTPUT_PIN, wave[i]);
+    delayMicroseconds(50);
+  }
+}
