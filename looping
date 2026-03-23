@@ -1,0 +1,52 @@
+#include <Arduino.h>
+
+#define INPUT_PIN A0
+#define OUTPUT_PIN 3
+#define SQUARE_PIN 6
+#define BUTTON_PIN 2
+
+#define WAVE_LEN 256
+
+uint8_t wave[WAVE_LEN];
+
+bool captured = false;
+
+// ===== SETUP =====
+void setup() {
+  pinMode(SQUARE_PIN, OUTPUT);
+  pinMode(OUTPUT_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+}
+
+// ===== CAPTURE FUNCTION =====
+void captureWave() {
+  for (int i = 0; i < WAVE_LEN; i++) {
+    wave[i] = analogRead(INPUT_PIN) >> 2; // 8-bit
+    delayMicroseconds(100); // ~10kHz sampling
+  }
+}
+
+// ===== LOOP =====
+void loop() {
+
+  // ---- Generate square wave ----
+  digitalWrite(SQUARE_PIN, HIGH);
+  delayMicroseconds(100);
+  digitalWrite(SQUARE_PIN, LOW);
+  delayMicroseconds(100);
+
+  // ---- Button press = capture ----
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    captureWave();
+    captured = true;
+    delay(300); // debounce
+  }
+
+  // ---- Playback ----
+  if (captured) {
+    for (int i = 0; i < WAVE_LEN; i++) {
+      analogWrite(OUTPUT_PIN, wave[i]);
+      delayMicroseconds(100);
+    }
+  }
+}
