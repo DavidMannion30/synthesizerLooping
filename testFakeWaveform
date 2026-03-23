@@ -8,10 +8,16 @@ uint8_t wave[WAVE_LEN];
 void setup() {
   pinMode(OUTPUT_PIN, OUTPUT);
 
-  // Fill buffer with a simple ramp wave
+  // Fill with ramp
   for (int i = 0; i < WAVE_LEN; i++) {
     wave[i] = i;
   }
+
+  // Add a sharp pulse at the start
+  wave[0] = 255;
+  wave[1] = 0;
+  wave[2] = 255;
+  wave[3] = 0;
 }
 
 void loop() {
