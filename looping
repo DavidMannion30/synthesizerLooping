@@ -1,39 +1,43 @@
 #include <Arduino.h>
 
-#define INPUT_PIN A0
-#define OUTPUT_PIN 3
-#define SQUARE_PIN 6
-#define BUTTON_PIN 2
+// ===== Pins =====
+#define INPUT_PIN 26      // GP26 (ADC0)
+#define OUTPUT_PIN 3      // PWM output to amp
+#define SQUARE_PIN 6      // generates square wave
+#define BUTTON_PIN 2      // capture trigger
 
 #define WAVE_LEN 256
 
 uint8_t wave[WAVE_LEN];
-
 bool captured = false;
 
-// ===== SETUP =====
+// ===== Setup =====
 void setup() {
   pinMode(SQUARE_PIN, OUTPUT);
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  analogReadResolution(10);   // 0–1023
+  analogWriteRange(255);      // 8-bit PWM
 }
 
-// ===== CAPTURE FUNCTION =====
+// ===== Capture waveform =====
 void captureWave() {
   for (int i = 0; i < WAVE_LEN; i++) {
-    wave[i] = analogRead(INPUT_PIN) >> 2; // 8-bit
-    delayMicroseconds(100); // ~10kHz sampling
+    int val = analogRead(INPUT_PIN);   // 0–1023
+    wave[i] = val >> 2;               // convert to 0–255
+    delayMicroseconds(200);           // ~5 kHz sampling
   }
 }
 
-// ===== LOOP =====
+// ===== Loop =====
 void loop() {
 
-  // ---- Generate square wave ----
+  // ---- Generate slower square wave (matches 10k + 220nF) ----
   digitalWrite(SQUARE_PIN, HIGH);
-  delayMicroseconds(100);
+  delayMicroseconds(1000);
   digitalWrite(SQUARE_PIN, LOW);
-  delayMicroseconds(100);
+  delayMicroseconds(1000);
 
   // ---- Button press = capture ----
   if (digitalRead(BUTTON_PIN) == LOW) {
@@ -46,7 +50,7 @@ void loop() {
   if (captured) {
     for (int i = 0; i < WAVE_LEN; i++) {
       analogWrite(OUTPUT_PIN, wave[i]);
-      delayMicroseconds(100);
+      delayMicroseconds(200); // match capture rate
     }
   }
 }
