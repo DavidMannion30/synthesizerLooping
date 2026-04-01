@@ -1,56 +1,102 @@
 #include <Arduino.h>
 
 // ===== Pins =====
-#define INPUT_PIN 26      // GP26 (ADC0)
-#define OUTPUT_PIN 3      // PWM output to amp
-#define SQUARE_PIN 6      // generates square wave
-#define BUTTON_PIN 2      // capture trigger
+#define INPUT_PIN   26   // GP26 / ADC0
+#define OUTPUT_PIN  3    // GP3 -> amplifier
+#define SQUARE_PIN  6    // GP6 -> RC circuit
+#define BUTTON_PIN  2    // button to GND
 
-#define WAVE_LEN 256
+// ===== Recording settings =====
+#define SAMPLE_RATE     2000                    // 2000 samples/sec
+#define RECORD_SECONDS  5
+#define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
 
-uint8_t wave[WAVE_LEN];
+uint8_t wave[NUM_SAMPLES];
 bool captured = false;
 
-// ===== Setup =====
+// sample period in microseconds
+const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
+
 void setup() {
   pinMode(SQUARE_PIN, OUTPUT);
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  analogReadResolution(10);   // 0–1023
-  analogWriteRange(255);      // 8-bit PWM
-}
+  analogReadResolution(10);   // 0..1023
+  analogWriteRange(255);      // 8-bit PWM output
 
-// ===== Capture waveform =====
-void captureWave() {
-  for (int i = 0; i < WAVE_LEN; i++) {
-    int val = analogRead(INPUT_PIN);   // 0–1023
-    wave[i] = val >> 2;               // convert to 0–255
-    delayMicroseconds(200);           // ~5 kHz sampling
-  }
-}
+  // Optional on Pico Arduino core; harmless if supported
+  // analogWriteFreq(62500);
 
-// ===== Loop =====
-void loop() {
-
-  // ---- Generate slower square wave (matches 10k + 220nF) ----
-  digitalWrite(SQUARE_PIN, HIGH);
-  delayMicroseconds(1000);
   digitalWrite(SQUARE_PIN, LOW);
-  delayMicroseconds(1000);
+}
 
-  // ---- Button press = capture ----
-  if (digitalRead(BUTTON_PIN) == LOW) {
-    captureWave();
-    captured = true;
-    delay(300); // debounce
+void captureWave5s() {
+  uint32_t lastToggle = micros();
+  bool sqState = false;
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    // Keep exciting the RC circuit while recording.
+    // Toggle every sample -> square wave at SAMPLE_RATE/2 = 1000 Hz.
+    uint32_t now = micros();
+    while ((micros() - now) < SAMPLE_US) {
+      // wait until next sample time
+    }
+
+    sqState = !sqState;
+    digitalWrite(SQUARE_PIN, sqState ? HIGH : LOW);
+
+    int val = analogRead(INPUT_PIN);   // 0..1023
+    wave[i] = val >> 2;                // store as 0..255
   }
 
-  // ---- Playback ----
-  if (captured) {
-    for (int i = 0; i < WAVE_LEN; i++) {
-      analogWrite(OUTPUT_PIN, wave[i]);
-      delayMicroseconds(200); // match capture rate
+  digitalWrite(SQUARE_PIN, LOW);
+}
+
+void playLoopWithFade() {
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    uint8_t s = wave[i];
+
+    // Treat 128 as the "center"
+    int centered = (int)s - 128;
+
+    // Fade volume from full at start to low at end of 5-second loop
+    // gain goes from 255 down to 26
+    int gain = 255 - ((229L * i) / (NUM_SAMPLES - 1));
+
+    // scale around midpoint
+    int out = 128 + ((centered * gain) / 255);
+
+    if (out < 0) out = 0;
+    if (out > 255) out = 255;
+
+    analogWrite(OUTPUT_PIN, out);
+
+    uint32_t start = micros();
+    while ((micros() - start) < SAMPLE_US) {
+      // hold sample
     }
+  }
+
+  // Tiny silence gap so the reset is extra obvious
+  analogWrite(OUTPUT_PIN, 128);
+  delay(120);
+}
+
+void loop() {
+  if (!captured) {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      delay(20);
+      if (digitalRead(BUTTON_PIN) == LOW) {
+        captureWave5s();
+        captured = true;
+
+        while (digitalRead(BUTTON_PIN) == LOW) {
+          delay(5);
+        }
+      }
+    }
+  } else {
+    playLoopWithFade();
   }
 }
