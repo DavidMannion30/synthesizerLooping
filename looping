@@ -1,13 +1,12 @@
 #include <Arduino.h>
 
 // ===== Pins =====
-#define INPUT_PIN   26   // GP26 (RC input)
-#define OUTPUT_PIN  3    // GP3 (to amp)
-#define SQUARE_PIN  6    // GP6 (drives RC)
-#define BUTTON_PIN  2    // button
+#define INPUT_PIN   26   // Synth input (via attenuation + bias)
+#define OUTPUT_PIN  3    // Audio out
+#define BUTTON_PIN  2    // Record button
 
 // ===== Settings =====
-#define SAMPLE_RATE     2000      // samples per second
+#define SAMPLE_RATE     2000
 #define RECORD_SECONDS  5
 #define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
 
@@ -18,7 +17,6 @@ const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
 
 // ===== Setup =====
 void setup() {
-  pinMode(SQUARE_PIN, OUTPUT);
   pinMode(OUTPUT_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
@@ -34,31 +32,22 @@ void setup() {
 void captureWave() {
   Serial.println("Recording 5 seconds...");
 
-  bool sq = false;
-
   for (int i = 0; i < NUM_SAMPLES; i++) {
     uint32_t t = micros();
 
-    // drive RC circuit
-    sq = !sq;
-    digitalWrite(SQUARE_PIN, sq);
-
     int val = analogRead(INPUT_PIN);
-    wave[i] = val >> 2;
+    wave[i] = val >> 2; // convert 10-bit → 8-bit
 
-    // timing
     while (micros() - t < SAMPLE_US);
   }
-
-  digitalWrite(SQUARE_PIN, LOW);
 
   Serial.println("Recording done!");
 }
 
-// ===== Play loop with clear markers =====
+// ===== Play loop =====
 void playLoop() {
 
-  // 🔊 LOOP START MARKER (clear beep)
+  //  LOOP START MARKER
   for (int i = 0; i < 300; i++) {
     digitalWrite(OUTPUT_PIN, HIGH);
     delayMicroseconds(800);
@@ -66,15 +55,13 @@ void playLoop() {
     delayMicroseconds(800);
   }
 
-  delay(150); // short silence → easier to hear boundary
+  delay(150);
 
-  // PLAY BACK RECORDED WAVE
+  // Playback
   for (int i = 0; i < NUM_SAMPLES; i++) {
 
     int centered = wave[i] - 128;
-
-    // slight boost so it's audible
-    int out = 128 + (centered * 2);
+    int out = 128 + (centered * 2); // boost
 
     if (out < 0) out = 0;
     if (out > 255) out = 255;
@@ -85,17 +72,17 @@ void playLoop() {
     while (micros() - t < SAMPLE_US);
   }
 
-  // 🔇 LOOP END MARKER (silence)
+  //  Silence between loops
   analogWrite(OUTPUT_PIN, 128);
   delay(300);
 }
 
-// ===== Loop =====
+// ===== Main loop =====
 void loop() {
 
   if (!captured) {
     if (digitalRead(BUTTON_PIN) == LOW) {
-      delay(20);
+      delay(20); // debounce
 
       if (digitalRead(BUTTON_PIN) == LOW) {
         Serial.println("Button pressed!");
@@ -103,7 +90,6 @@ void loop() {
         captureWave();
         captured = true;
 
-        // wait for release
         while (digitalRead(BUTTON_PIN) == LOW) {
           delay(5);
         }
