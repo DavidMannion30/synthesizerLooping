@@ -1,101 +1,90 @@
-#include <Arduino.h>
-
-// ===== Pins =====
-#define INPUT_PIN   26   // Synth input (via attenuation + bias)
-#define OUTPUT_PIN  3    // Audio out
-#define BUTTON_PIN  2    // Record button
-
-// ===== Settings =====
-#define SAMPLE_RATE     2000
-#define RECORD_SECONDS  5
-#define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
-
-uint8_t wave[NUM_SAMPLES];
-bool captured = false;
-
-const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
-
-// ===== Setup =====
-void setup() {
-  pinMode(OUTPUT_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-  analogReadResolution(10);
-  analogWriteRange(255);
-
-  Serial.begin(115200);
-  delay(2000);
-  Serial.println("Ready - press button");
-}
-
-// ===== Capture 5 seconds =====
-void captureWave() {
-  Serial.println("Recording 5 seconds...");
-
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    uint32_t t = micros();
-
-    int val = analogRead(INPUT_PIN);
-    wave[i] = val >> 2; // convert 10-bit → 8-bit
-
-    while (micros() - t < SAMPLE_US);
-  }
-
-  Serial.println("Recording done!");
-}
-
-// ===== Play loop =====
-void playLoop() {
-
-  //  LOOP START MARKER
-  for (int i = 0; i < 300; i++) {
-    digitalWrite(OUTPUT_PIN, HIGH);
-    delayMicroseconds(800);
-    digitalWrite(OUTPUT_PIN, LOW);
-    delayMicroseconds(800);
-  }
-
-  delay(150);
-
-  // Playback
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-
-    int centered = wave[i] - 128;
-    int out = 128 + (centered * 2); // boost
-
-    if (out < 0) out = 0;
-    if (out > 255) out = 255;
-
-    analogWrite(OUTPUT_PIN, out);
-
-    uint32_t t = micros();
-    while (micros() - t < SAMPLE_US);
-  }
-
-  //  Silence between loops
-  analogWrite(OUTPUT_PIN, 128);
-  delay(300);
-}
-
-// ===== Main loop =====
-void loop() {
-
-  if (!captured) {
-    if (digitalRead(BUTTON_PIN) == LOW) {
-      delay(20); // debounce
-
-      if (digitalRead(BUTTON_PIN) == LOW) {
-        Serial.println("Button pressed!");
-
-        captureWave();
-        captured = true;
-
-        while (digitalRead(BUTTON_PIN) == LOW) {
-          delay(5);
-        }
-      }
-    }
-  } else {
-    playLoop();
-  }
-}
+//#include <Arduino.h>
+//
+//// ===== Pins =====
+//#define INPUT_PIN   26
+//#define OUTPUT_PIN  3
+//#define BUTTON_PIN  2
+//
+////settings
+//#define SAMPLE_RATE     2000
+//#define RECORD_SECONDS  5
+//#define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
+//
+//uint8_t wave[NUM_SAMPLES];
+//bool captured = false;
+//
+//const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
+//
+////setup
+//void setup() {
+//  pinMode(OUTPUT_PIN, OUTPUT);
+//  pinMode(BUTTON_PIN, INPUT_PULLUP);
+//
+//  analogReadResolution(10);
+//  analogWriteRange(255);
+//
+//  Serial.begin(115200);
+//  delay(2000);
+//  Serial.println("Ready - press button");
+//}
+//
+////capture
+//void captureWave() {
+//  Serial.println(">>> Recording STARTED <<<");
+//
+//  for (int i = 0; i < NUM_SAMPLES; i++) {
+//    uint32_t t = micros();
+//
+//    int val = analogRead(INPUT_PIN);
+//    wave[i] = val >> 2;
+//
+//    while (micros() - t < SAMPLE_US);
+//  }
+//
+//  Serial.println(">>> Recording DONE <<<");
+//}
+//
+////playback
+//void playLoop() {
+//
+//  for (int i = 0; i < NUM_SAMPLES; i++) {
+//
+//    int centered = wave[i] - 128;
+//    int out = 128 + (centered * 2);
+//
+//    if (out < 0) out = 0;
+//    if (out > 255) out = 255;
+//
+//    analogWrite(OUTPUT_PIN, out);
+//
+//    uint32_t t = micros();
+//    while (micros() - t < SAMPLE_US);
+//  }
+//
+////  //Silence between loops
+////  analogWrite(OUTPUT_PIN, 128);
+////  delay(300);
+//}
+//
+////main loop
+//void loop() {
+//
+//  if (!captured) {
+//    if (digitalRead(BUTTON_PIN) == LOW) {
+//      delay(20); // debounce
+//
+//      if (digitalRead(BUTTON_PIN) == LOW) {
+//        Serial.println("Button pressed!");
+//
+//        captureWave();
+//        captured = true;
+//
+//        while (digitalRead(BUTTON_PIN) == LOW) {
+//          delay(5);
+//        }
+//      }
+//    }
+//  } else {
+//    playLoop();
+//  }
+//}
