@@ -1,0 +1,78 @@
+#include <Arduino.h>
+
+// ===== Pins =====
+#define INPUT_PIN   26   // GP26 (ADC0)
+#define OUTPUT_PIN  3    // GP3 (PWM output)
+
+// Settings
+#define SAMPLE_RATE     2000
+#define RECORD_SECONDS  5
+#define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
+
+uint8_t wave[NUM_SAMPLES];
+bool captured = false;
+
+const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
+
+// ===== Setup =====
+void setup() {
+  pinMode(OUTPUT_PIN, OUTPUT);
+
+  analogReadResolution(10);   // 0–1023
+  analogWriteRange(255);      // 8-bit PWM
+
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println("Starting auto capture...");
+}
+
+// ===== Capture =====
+void captureWave() {
+  Serial.println(">>> Recording STARTED <<<");
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    uint32_t t = micros();
+
+    int val = analogRead(INPUT_PIN);
+
+    // Print first few samples for debug
+    if (i < 20) {
+      Serial.println(val);
+    }
+
+    wave[i] = val >> 2;  // convert 10-bit to 8-bit
+
+    while (micros() - t < SAMPLE_US);
+  }
+
+  Serial.println(">>> Recording DONE <<<");
+}
+
+// ===== Playback =====
+void playLoop() {
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    uint32_t t = micros();
+
+    int centered = wave[i] - 128;
+    int out = 128 + (centered * 2);
+
+    if (out < 0) out = 0;
+    if (out > 255) out = 255;
+
+    analogWrite(OUTPUT_PIN, out);
+
+    while (micros() - t < SAMPLE_US);
+  }
+}
+
+// ===== Main Loop =====
+void loop() {
+
+  if (!captured) {
+    captureWave();
+    captured = true;
+  } else {
+    playLoop();
+  }
+}
