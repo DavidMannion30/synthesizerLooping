@@ -1,0 +1,152 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// =====================
+// Main pins
+// =====================
+#define INPUT_PIN   26
+#define OUTPUT_PIN  3
+#define BUTTON_PIN  2
+
+// =====================
+// OLED SPI pins
+// =====================
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+#define OLED_MOSI 19
+#define OLED_CLK  18
+#define OLED_DC   16
+#define OLED_CS   17
+#define OLED_RST  20
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, OLED_DC, OLED_RST, OLED_CS);
+
+// =====================
+// Settings
+// =====================
+#define SAMPLE_RATE     2000
+#define RECORD_SECONDS  5
+#define NUM_SAMPLES     (SAMPLE_RATE * RECORD_SECONDS)
+
+uint8_t wave[NUM_SAMPLES];
+bool captured = false;
+
+const uint32_t SAMPLE_US = 1000000UL / SAMPLE_RATE;
+
+// =====================
+// OLED helper
+// =====================
+void showOLED(const char* line1, const char* line2 = "", const char* line3 = "") {
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(line1);
+
+  display.setCursor(0, 20);
+  display.println(line2);
+
+  display.setCursor(0, 40);
+  display.println(line3);
+
+  display.display();
+}
+
+// =====================
+// Setup
+// =====================
+void setup() {
+  pinMode(OUTPUT_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  analogReadResolution(10);
+  analogWriteRange(255);
+
+  Serial.begin(115200);
+  delay(2000);
+
+  // OLED SPI setup
+  SPI.setTX(OLED_MOSI);
+  SPI.setSCK(OLED_CLK);
+  SPI.begin();
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC)) {
+    Serial.println("OLED FAILED");
+  } else {
+    Serial.println("OLED OK");
+    showOLED("Ready", "Press button");
+  }
+
+  Serial.println("Ready - press button");
+}
+
+// =====================
+// Capture
+// =====================
+void captureWave() {
+  Serial.println(">>> Recording STARTED <<<");
+  showOLED("Recording...", "Please wait");
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    uint32_t t = micros();
+
+    int val = analogRead(INPUT_PIN);
+    if (i < 20) Serial.println(val);
+
+    wave[i] = val >> 2;
+
+    while (micros() - t < SAMPLE_US);
+  }
+
+  Serial.println(">>> Recording DONE <<<");
+  showOLED("Recording done", "Playing back...");
+}
+
+// =====================
+// Playback
+// =====================
+void playLoop() {
+  showOLED("Playback", "Looping...");
+
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    uint32_t t = micros();
+
+    int centered = wave[i] - 128;
+    int out = 128 + (centered * 2);
+
+    if (out < 0) out = 0;
+    if (out > 255) out = 255;
+
+    analogWrite(OUTPUT_PIN, out);
+
+    while (micros() - t < SAMPLE_US);
+  }
+}
+
+// =====================
+// Main loop
+// =====================
+void loop() {
+  if (!captured) {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      delay(20);
+
+      if (digitalRead(BUTTON_PIN) == LOW) {
+        Serial.println("Button pressed!");
+        showOLED("Button pressed", "Recording...");
+        captureWave();
+        captured = true;
+
+        while (digitalRead(BUTTON_PIN) == LOW) {
+          delay(5);
+        }
+      }
+    }
+  } else {
+    playLoop();
+  }
+}
